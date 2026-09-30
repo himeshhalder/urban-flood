@@ -1,0 +1,6 @@
+{
+  "name": "Urban Flood Nowcasting System",
+  "description": "High-resolution 0–3 hour urban flood prediction, drainage-network surcharge modeling, street water depth mapping, and emergency flood-safe routing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

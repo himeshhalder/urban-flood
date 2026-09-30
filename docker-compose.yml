@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # FastAPI Hydrology & GIS Backend + WebSocket
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://flood_user:flood_pass@db:5432/flood_db
+      - REDIS_URL=redis://redis:6379/0
+      - DOPPLER_RADAR_API_KEY=${DOPPLER_RADAR_API_KEY:-demo_key}
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  # PostgreSQL with PostGIS Geospatial Extension
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: flood_user
+      POSTGRES_PASSWORD: flood_pass
+      POSTGRES_DB: flood_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Redis for Real-time Sensor Cache & WebSocket Pub/Sub
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgis_data:
+  redis_data:
