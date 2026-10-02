@@ -36,6 +36,7 @@ import {
   Droplets
 } from 'lucide-react';
 import { MUMBAI_FLOOD_POLYGONS, MUMBAI_ARRIVAL_ZONES, NATIONAL_FLOOD_HOTSPOTS } from '../../data/mockData';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 interface FloodMapProps {
   cityCenter: [number, number];
@@ -55,6 +56,7 @@ interface FloodMapProps {
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   className?: string;
+  selectedWard?: string;
 }
 
 export const FloodMap: React.FC<FloodMapProps> = ({
@@ -74,8 +76,10 @@ export const FloodMap: React.FC<FloodMapProps> = ({
   onSelectCity,
   isFullscreen: externalIsFullscreen,
   onToggleFullscreen,
-  className
+  className,
+  selectedWard = 'ALL'
 }) => {
+  const { t } = useTranslation();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const baseTileLayerRef = useRef<L.TileLayer | null>(null);
@@ -329,6 +333,62 @@ export const FloodMap: React.FC<FloodMapProps> = ({
     }
   }, [cityCenter, zoom]);
 
+  // Smoothly center and zoom map to the selected ward or reset to entire city
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (!selectedWard || selectedWard === 'ALL' || selectedWard === 'Entire City') {
+      const isAllIndia = zoom <= 6 || (cityCenter[0] > 20 && cityCenter[0] < 24 && cityCenter[1] > 77 && cityCenter[1] < 81);
+      if (isAllIndia) {
+        map.fitBounds([[7.5, 68.0], [36.0, 97.5]], { padding: [24, 24] });
+      } else {
+        map.setView(cityCenter, zoom);
+      }
+      return;
+    }
+
+    // Collect coordinates of roads in the selected ward
+    const coords: [number, number][] = [];
+    roads.forEach(r => {
+      if (r.coordinates && r.coordinates.length > 0) {
+        coords.push(...r.coordinates);
+      }
+    });
+
+    if (coords.length > 0) {
+      let minLat = 90;
+      let maxLat = -90;
+      let minLng = 180;
+      let maxLng = -180;
+      let sumLat = 0;
+      let sumLng = 0;
+
+      coords.forEach(([lat, lng]) => {
+        minLat = Math.min(minLat, lat);
+        maxLat = Math.max(maxLat, lat);
+        minLng = Math.min(minLng, lng);
+        maxLng = Math.max(maxLng, lng);
+        sumLat += lat;
+        sumLng += lng;
+      });
+
+      const latSpan = maxLat - minLat;
+      const lngSpan = maxLng - minLng;
+
+      if (latSpan > 0.005 || lngSpan > 0.005) {
+        map.flyToBounds(
+          [
+            [minLat - 0.004, minLng - 0.004],
+            [maxLat + 0.004, maxLng + 0.004]
+          ],
+          { padding: [50, 50], maxZoom: 15, duration: 0.8 }
+        );
+      } else {
+        map.flyTo([sumLat / coords.length, sumLng / coords.length], 14, { duration: 0.8 });
+      }
+    }
+  }, [selectedWard, roads, cityCenter, zoom]);
 
   // Handle Play Animation
   useEffect(() => {
@@ -884,7 +944,7 @@ export const FloodMap: React.FC<FloodMapProps> = ({
         <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-[200px] sm:min-w-[240px]">
           <input
             type="text"
-            placeholder="Search road, underpass, ward (e.g., Milan Subway, Hindmata)..."
+            placeholder={t('map.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-white text-xs text-slate-800 placeholder-slate-400 pl-8 pr-3 py-2 rounded-lg border border-slate-300 shadow-md focus:outline-none focus:border-blue-700"
@@ -907,7 +967,7 @@ export const FloodMap: React.FC<FloodMapProps> = ({
           title="Toggle GIS Layers"
         >
           <Layers className="w-4 h-4" />
-          <span className="hidden sm:inline">GIS Layers</span>
+          <span className="hidden sm:inline">{t('map.layers')}</span>
         </button>
 
         {/* Legend Toggle */}
@@ -919,17 +979,17 @@ export const FloodMap: React.FC<FloodMapProps> = ({
           title="Toggle Flood Depth Legend"
         >
           <Sliders className="w-4 h-4" />
-          <span className="hidden sm:inline">Depth Legend</span>
+          <span className="hidden sm:inline">{t('map.floodDepths')}</span>
         </button>
 
         {/* Fit India View */}
         <button
           onClick={handleFitIndia}
           className="px-2.5 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 hover:text-blue-900 hover:bg-slate-50 shadow-md flex items-center gap-1 text-xs font-semibold cursor-pointer"
-          title="Reset India View"
+          title={t('map.allIndia')}
         >
           <Crosshair className="w-3.5 h-3.5 text-blue-900" />
-          <span className="hidden sm:inline">Fit India</span>
+          <span className="hidden sm:inline">{t('map.allIndia')}</span>
         </button>
 
         {/* Prominent Fullscreen Option */}
@@ -940,11 +1000,11 @@ export const FloodMap: React.FC<FloodMapProps> = ({
               ? 'bg-red-600 text-white border-red-500 hover:bg-red-700'
               : 'bg-blue-900 hover:bg-blue-800 text-white border-blue-900'
           }`}
-          title={isFullscreen ? 'Exit Fullscreen' : 'Expand Map to Fullscreen Viewport'}
-          aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+          title={isFullscreen ? t('map.exitFullscreen') : t('map.fullscreen')}
+          aria-label={isFullscreen ? t('map.exitFullscreen') : t('map.fullscreen')}
         >
           {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5 text-amber-300" />}
-          <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+          <span className="hidden sm:inline">{isFullscreen ? t('map.exitFullscreen') : t('map.fullscreen')}</span>
         </button>
       </div>
 
@@ -954,11 +1014,11 @@ export const FloodMap: React.FC<FloodMapProps> = ({
           <button
             onClick={handleToggleFullscreen}
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-2xl transition-all cursor-pointer border border-red-500 hover:scale-105 active:scale-95"
-            title="Exit Fullscreen Mode (Esc)"
-            aria-label="Exit Fullscreen"
+            title={t('map.exitFullscreen')}
+            aria-label={t('map.exitFullscreen')}
           >
             <Minimize2 className="w-4 h-4 text-white" />
-            <span>Exit Fullscreen</span>
+            <span>{t('map.exitFullscreen')}</span>
             <kbd className="hidden sm:inline-block text-[10px] bg-red-800 px-1.5 py-0.5 rounded font-mono text-red-100 uppercase">
               Esc
             </kbd>
@@ -1186,7 +1246,7 @@ export const FloodMap: React.FC<FloodMapProps> = ({
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8] animate-pulse" />
               <span className="text-xs font-bold uppercase tracking-wider text-slate-100">
-                Flood Depths
+                {t('map.floodDepths')}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -1196,7 +1256,7 @@ export const FloodMap: React.FC<FloodMapProps> = ({
               <button
                 onClick={() => setShowLegend(false)}
                 className="text-slate-400 hover:text-white p-0.5 rounded hover:bg-slate-800/60 transition-colors"
-                title="Hide Legend (reopen via toolbar)"
+                title="Hide Legend"
                 aria-label="Hide Legend"
               >
                 <X className="w-3.5 h-3.5" />
@@ -1214,7 +1274,7 @@ export const FloodMap: React.FC<FloodMapProps> = ({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Water Depth
+              {t('map.floodDepths')}
             </button>
             <button
               onClick={() => setLegendActiveTab('arrival')}
@@ -1224,7 +1284,7 @@ export const FloodMap: React.FC<FloodMapProps> = ({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Arrival Time
+              {t('map.arrivalTime')}
             </button>
           </div>
 
@@ -1236,36 +1296,36 @@ export const FloodMap: React.FC<FloodMapProps> = ({
                 <div className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-800/40 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 rounded bg-[#7c3aed] border border-purple-300 shadow-[0_0_6px_rgba(124,58,237,0.7)] shrink-0" />
-                    <span className="text-slate-100 font-semibold text-[11px]">Purple (Critical)</span>
+                    <span className="text-slate-100 font-semibold text-[11px]">{t('status.critical')}</span>
                   </div>
-                  <span className="font-mono text-[11px] font-bold text-purple-300">&gt; 60 cm</span>
+                  <span className="font-mono text-[11px] font-bold text-purple-300">&gt; 60 {t('common.cm')}</span>
                 </div>
 
                 {/* Dark Blue */}
                 <div className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-800/40 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 rounded bg-[#1e40af] border border-blue-400 shrink-0" />
-                    <span className="text-slate-100 font-semibold text-[11px]">Dark Blue</span>
+                    <span className="text-slate-100 font-semibold text-[11px]">{t('status.severe')}</span>
                   </div>
-                  <span className="font-mono text-[11px] font-bold text-blue-300">&gt; 50 cm</span>
+                  <span className="font-mono text-[11px] font-bold text-blue-300">&gt; 50 {t('common.cm')}</span>
                 </div>
 
                 {/* Medium Blue */}
                 <div className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-800/40 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 rounded bg-[#2563eb] border border-blue-300 shrink-0" />
-                    <span className="text-slate-200 font-medium text-[11px]">Medium Blue</span>
+                    <span className="text-slate-200 font-medium text-[11px]">{t('status.warning')}</span>
                   </div>
-                  <span className="font-mono text-[11px] font-semibold text-blue-200">10 – 50 cm</span>
+                  <span className="font-mono text-[11px] font-semibold text-blue-200">10 – 50 {t('common.cm')}</span>
                 </div>
 
                 {/* Light Blue */}
                 <div className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-800/40 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 rounded bg-[#38bdf8] border border-sky-200 shrink-0" />
-                    <span className="text-slate-200 font-medium text-[11px]">Light Blue</span>
+                    <span className="text-slate-200 font-medium text-[11px]">{t('status.watch')}</span>
                   </div>
-                  <span className="font-mono text-[11px] font-semibold text-sky-200">&lt; 10 cm</span>
+                  <span className="font-mono text-[11px] font-semibold text-sky-200">&lt; 10 {t('common.cm')}</span>
                 </div>
               </>
             ) : (
@@ -1274,37 +1334,37 @@ export const FloodMap: React.FC<FloodMapProps> = ({
                 <div className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-800/40 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 rounded-full bg-[#4a044e] border border-purple-400 shrink-0" />
-                    <span className="text-purple-200 font-semibold text-[11px]">Surcharging</span>
+                    <span className="text-purple-200 font-semibold text-[11px]">{t('status.surcharged')}</span>
                   </div>
-                  <span className="font-mono text-[10px] text-purple-300 font-bold">0–15 min</span>
+                  <span className="font-mono text-[10px] text-purple-300 font-bold">0–15 {t('common.mins')}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-800/40 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 rounded-full bg-[#7c3aed] border border-purple-300 shrink-0" />
                     <span className="text-purple-200 font-semibold text-[11px]">Rapid Ingress</span>
                   </div>
-                  <span className="font-mono text-[10px] text-purple-300 font-bold">15–30 min</span>
+                  <span className="font-mono text-[10px] text-purple-300 font-bold">15–30 {t('common.mins')}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-800/40 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 rounded-full bg-[#4338ca] border border-indigo-400 shrink-0" />
                     <span className="text-indigo-200 font-semibold text-[11px]">Runoff Crest</span>
                   </div>
-                  <span className="font-mono text-[10px] text-indigo-300 font-bold">30–60 min</span>
+                  <span className="font-mono text-[10px] text-indigo-300 font-bold">30–60 {t('common.mins')}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-800/40 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 rounded-full bg-[#1d4ed8] border border-blue-400 shrink-0" />
                     <span className="text-blue-200 font-semibold text-[11px]">Secondary Wave</span>
                   </div>
-                  <span className="font-mono text-[10px] text-blue-300 font-bold">1–2 hours</span>
+                  <span className="font-mono text-[10px] text-blue-300 font-bold">1–2 h</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-800/40 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-3.5 h-3.5 rounded-full bg-[#0284c7] border border-sky-400 shrink-0" />
                     <span className="text-sky-200 font-semibold text-[11px]">Basin Lag</span>
                   </div>
-                  <span className="font-mono text-[10px] text-sky-300 font-bold">2–3 hours</span>
+                  <span className="font-mono text-[10px] text-sky-300 font-bold">2–3 h</span>
                 </div>
               </>
             )}
@@ -1320,7 +1380,7 @@ export const FloodMap: React.FC<FloodMapProps> = ({
           title="Show Flood Depths Legend"
         >
           <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
-          <span>Show Legend</span>
+          <span>{t('map.mapLegend')}</span>
         </button>
       )}
 
@@ -1353,7 +1413,7 @@ export const FloodMap: React.FC<FloodMapProps> = ({
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium'
                 }`}
               >
-                {step === 0 ? 'Now' : `+${step}m`}
+                {step === 0 ? t('common.now') : `+${step}m`}
               </button>
             );
           })}
@@ -1362,8 +1422,8 @@ export const FloodMap: React.FC<FloodMapProps> = ({
         {/* Forecast Horizon Label: Always clearly visible, responsive text */}
         <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2 sm:pl-3 font-mono text-[11px] sm:text-xs text-blue-950 font-bold whitespace-nowrap shrink-0">
           <Clock className="w-3.5 h-3.5 text-blue-700 shrink-0" />
-          <span className="hidden sm:inline">Forecast Horizon: </span>
-          <span>+{timeStep} mins</span>
+          <span className="hidden sm:inline">{t('map.timeHorizon')}: </span>
+          <span>+{timeStep} {t('common.mins')}</span>
         </div>
       </div>
 

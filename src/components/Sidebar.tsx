@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   X
 } from 'lucide-react';
+import { useTranslation } from '../i18n/LanguageContext';
 
 export type NavTabId =
   | 'overview'
@@ -53,20 +54,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed,
   onToggleCollapse
 }) => {
+  const { t } = useTranslation();
   // Determine effective open state
   const effectiveOpen = isOpen !== undefined ? isOpen : (isMobileOpen || !isCollapsed);
   const handleClose = onClose || onCloseMobile || onToggleCollapse;
 
   const navItems: { id: NavTabId; label: string; simpleDesc: string; icon: React.ElementType; badge?: number; badgeColor?: string }[] = [
-    { id: 'overview', label: 'Home Summary', simpleDesc: 'Overall city flood situation', icon: LayoutDashboard },
-    { id: 'map', label: 'Live Flood Map', simpleDesc: 'Streets, depths & arrival times', icon: Map },
-    { id: 'rainfall', label: 'Rainfall Forecast', simpleDesc: 'Next 0 to 3 hours rain rate', icon: CloudRain },
-    { id: 'drainage', label: 'City Drains & Pumps', simpleDesc: 'Holding tanks & blockage tests', icon: Network },
-    { id: 'routes', label: 'Safe Route Finder', simpleDesc: 'Avoid submerged roads & subways', icon: Navigation },
-    { id: 'alerts', label: 'Public Alerts', simpleDesc: 'Official municipal warnings', icon: BellRing, badge: alertCount, badgeColor: 'bg-red-600 text-white' },
-    { id: 'citizen', label: 'Report Flooding', simpleDesc: 'Citizen reports & photos', icon: FileText, badge: reportCount, badgeColor: 'bg-blue-100 text-blue-800 border border-blue-300' },
-    { id: 'historical', label: 'Past Floods Data', simpleDesc: '2005 & 2017 cloudburst logs', icon: History },
-    { id: 'settings', label: 'Settings & Help', simpleDesc: 'Thresholds & emergency guidelines', icon: Settings }
+    { id: 'overview', label: t('nav.overview'), simpleDesc: t('nav.overviewDesc'), icon: LayoutDashboard },
+    { id: 'map', label: t('nav.map'), simpleDesc: t('nav.mapDesc'), icon: Map },
+    { id: 'rainfall', label: t('nav.rainfall'), simpleDesc: t('nav.rainfallDesc'), icon: CloudRain },
+    { id: 'drainage', label: t('nav.drainage'), simpleDesc: t('nav.drainageDesc'), icon: Network },
+    { id: 'routes', label: t('nav.routes'), simpleDesc: t('nav.routesDesc'), icon: Navigation },
+    { id: 'alerts', label: t('nav.alerts'), simpleDesc: t('nav.alertsDesc'), icon: BellRing, badge: alertCount, badgeColor: 'bg-red-600 text-white' },
+    { id: 'citizen', label: t('nav.citizen'), simpleDesc: t('nav.citizenDesc'), icon: FileText, badge: reportCount, badgeColor: 'bg-blue-100 text-blue-800 border border-blue-300' },
+    { id: 'historical', label: t('nav.historical'), simpleDesc: t('nav.historicalDesc'), icon: History },
+    { id: 'settings', label: t('nav.settings'), simpleDesc: t('nav.settingsDesc'), icon: Settings }
   ];
 
   return (
@@ -88,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation Links */}
         <div className="p-3 space-y-1 overflow-y-auto flex-1">
           <div className="px-3 py-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
-            <span className="text-blue-950 font-extrabold tracking-wide">Control Room Modules</span>
+            <span className="text-blue-950 font-extrabold tracking-wide">{t('common.controlRoomModules')}</span>
             {handleClose && (
               <button
                 onClick={handleClose}

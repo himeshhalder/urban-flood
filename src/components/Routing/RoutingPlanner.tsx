@@ -11,10 +11,12 @@ import {
   Compass,
   ExternalLink,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Filter
 } from 'lucide-react';
 import { RoadSegment, VehicleType, RouteOption, CriticalFacility, CityConfig } from '../../types';
 import { RoutingEngine, RouteSearchRequest } from '../../services/routingEngine';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 interface RoutingPlannerProps {
   roads: RoadSegment[];
@@ -22,6 +24,7 @@ interface RoutingPlannerProps {
   onNavigateToMap: () => void;
   currentCity?: CityConfig;
   facilities?: CriticalFacility[];
+  selectedWard?: string;
 }
 
 export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
@@ -29,15 +32,35 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
   onSelectRoute,
   onNavigateToMap,
   currentCity,
-  facilities
+  facilities,
+  selectedWard = 'ALL'
 }) => {
+  const { t } = useTranslation();
+
+  const isWardFiltered = selectedWard && selectedWard !== 'ALL' && selectedWard !== 'Entire City';
+
   const PRESET_LOCATIONS: { name: string; coords: [number, number] }[] = React.useMemo(() => {
-    if (facilities && facilities.length >= 2) {
-      return facilities.map(f => ({ name: f.name, coords: f.coordinates }));
+    const list: { name: string; coords: [number, number] }[] = [];
+
+    // Prioritize roads in the active ward
+    if (roads && roads.length > 0) {
+      roads.forEach(r => {
+        if (r.coordinates && r.coordinates.length > 0) {
+          list.push({ name: `${r.name} (${r.ward.split('(')[0].trim()})`, coords: r.coordinates[0] });
+        }
+      });
     }
-    if (roads && roads.length >= 2) {
-      return roads.slice(0, 6).map(r => ({ name: r.name, coords: r.coordinates[0] }));
+
+    if (facilities && facilities.length > 0) {
+      facilities.forEach(f => {
+        list.push({ name: f.name, coords: f.coordinates });
+      });
     }
+
+    if (list.length >= 2) {
+      return list;
+    }
+
     return [
       { name: 'Government Civil Hospital Emergency Gate', coords: [19.0035, 72.8428] },
       { name: 'District Fire & Rescue Command Center', coords: [19.0385, 72.8610] },
@@ -54,9 +77,13 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
   const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [activeRouteId, setActiveRouteId] = useState<string>('route-safe-01');
 
+  // Clamp indices if PRESET_LOCATIONS change
+  const safeOriginIndex = Math.min(originIndex, Math.max(0, PRESET_LOCATIONS.length - 1));
+  const safeDestinationIndex = Math.min(destinationIndex, Math.max(0, PRESET_LOCATIONS.length - 1));
+
   const handleCalculateRoute = () => {
-    const origin = PRESET_LOCATIONS[originIndex];
-    const destination = PRESET_LOCATIONS[destinationIndex];
+    const origin = PRESET_LOCATIONS[safeOriginIndex] || PRESET_LOCATIONS[0];
+    const destination = PRESET_LOCATIONS[safeDestinationIndex] || PRESET_LOCATIONS[1] || PRESET_LOCATIONS[0];
 
     const req: RouteSearchRequest = {
       originName: origin.name,
@@ -78,15 +105,15 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
 
   React.useEffect(() => {
     handleCalculateRoute();
-  }, [originIndex, destinationIndex, selectedVehicle, departureOffset, isEmergencyPriority]);
+  }, [safeOriginIndex, safeDestinationIndex, selectedVehicle, departureOffset, isEmergencyPriority, roads]);
 
-  const vehicles: { type: VehicleType; label: string; icon: React.ElementType; limit: number; advice: string }[] = [
-    { type: 'ambulance', label: 'Ambulance', icon: HeartPulse, limit: 45, advice: 'High chassis clearance' },
-    { type: 'fire_truck', label: 'Fire Truck', icon: Flame, limit: 60, advice: 'Heavy rescue clearance' },
-    { type: 'police', label: 'Police 4x4', icon: Shield, limit: 35, advice: 'Patrol & rescue' },
-    { type: 'bus', label: 'BEST Bus', icon: Bus, limit: 40, advice: 'Municipal transit' },
-    { type: 'car', label: 'Car / Auto', icon: Car, limit: 20, advice: 'Avoid water above 20cm' },
-    { type: 'walking', label: 'Pedestrian', icon: Footprints, limit: 12, advice: 'Avoid hidden open manholes' }
+  const vehicles: { type: VehicleType; labelKey: string; icon: React.ElementType; limit: number; advice: string }[] = [
+    { type: 'ambulance', labelKey: 'ambulance', icon: HeartPulse, limit: 45, advice: 'High chassis clearance' },
+    { type: 'fire_truck', labelKey: 'fire_truck', icon: Flame, limit: 60, advice: 'Heavy rescue clearance' },
+    { type: 'police', labelKey: 'police', icon: Shield, limit: 35, advice: 'Patrol & rescue' },
+    { type: 'bus', labelKey: 'bus', icon: Bus, limit: 40, advice: 'Municipal transit' },
+    { type: 'car', labelKey: 'car', icon: Car, limit: 20, advice: 'Avoid water above 20cm' },
+    { type: 'walking', labelKey: 'walking', icon: Footprints, limit: 12, advice: 'Avoid hidden open manholes' }
   ];
 
   return (
@@ -94,16 +121,22 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
       {/* Top Header */}
       <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Navigation className="w-5 h-5 text-emerald-600" /> Municipal Flood-Safe Route Finder
+              <Navigation className="w-5 h-5 text-emerald-600" /> {t('routes.title')}
             </h2>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase">
-              Avoids Submerged Roads
+              {t('routes.badge')}
             </span>
+            {isWardFiltered && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 uppercase flex items-center gap-1">
+                <Filter className="w-3 h-3 text-amber-700" />
+                {selectedWard}
+              </span>
+            )}
           </div>
           <p className="text-slate-600 mt-1 text-xs">
-            Plan your travel route to avoid submerged subways, overflowing nullahs, and stalled traffic during heavy Mumbai rains.
+            {t('routes.subtitle')}
           </p>
         </div>
 
@@ -112,9 +145,9 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
             type="checkbox"
             checked={isEmergencyPriority}
             onChange={(e) => setIsEmergencyPriority(e.target.checked)}
-            className="rounded accent-emerald-600 w-4 h-4"
+            className="rounded accent-emerald-600 w-4 h-4 cursor-pointer"
           />
-          <span className="font-bold text-emerald-800">Emergency Convoy Priority</span>
+          <span className="font-bold text-emerald-800">{t('routes.emergencyPriority')}</span>
         </label>
       </div>
 
@@ -123,15 +156,15 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
         {/* Controls */}
         <div className="space-y-4 bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
           <h3 className="font-bold text-slate-900 text-sm pb-2 border-b border-slate-200">
-            Route Details
+            {t('routes.title')}
           </h3>
 
           <div>
-            <label className="font-bold text-slate-700 block mb-1">Starting From (Origin)</label>
+            <label className="font-bold text-slate-700 block mb-1">{t('routes.startingFrom')}</label>
             <select
-              value={originIndex}
+              value={safeOriginIndex}
               onChange={(e) => setOriginIndex(Number(e.target.value))}
-              className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium"
+              className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium cursor-pointer"
             >
               {PRESET_LOCATIONS.map((loc, idx) => (
                 <option key={idx} value={idx}>
@@ -142,11 +175,11 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
           </div>
 
           <div>
-            <label className="font-bold text-slate-700 block mb-1">Going To (Destination)</label>
+            <label className="font-bold text-slate-700 block mb-1">{t('routes.goingTo')}</label>
             <select
-              value={destinationIndex}
+              value={safeDestinationIndex}
               onChange={(e) => setDestinationIndex(Number(e.target.value))}
-              className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium"
+              className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium cursor-pointer"
             >
               {PRESET_LOCATIONS.map((loc, idx) => (
                 <option key={idx} value={idx}>
@@ -158,16 +191,17 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
 
           {/* Vehicle Selector */}
           <div>
-            <label className="font-bold text-slate-700 block mb-1.5">How are you traveling?</label>
+            <label className="font-bold text-slate-700 block mb-1.5">{t('routes.vehicleType')}</label>
             <div className="grid grid-cols-2 gap-2">
               {vehicles.map((v) => {
                 const Icon = v.icon;
                 const isSelected = selectedVehicle === v.type;
+                const vLabel = t(`routes.vehicles.${v.labelKey}`) || v.labelKey;
                 return (
                   <button
                     key={v.type}
                     onClick={() => setSelectedVehicle(v.type)}
-                    className={`p-2.5 rounded-lg border text-left flex items-center gap-2 transition-all ${
+                    className={`p-2.5 rounded-lg border text-left flex items-center gap-2 transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-emerald-50 border-emerald-500 text-emerald-950 shadow-xs ring-1 ring-emerald-500'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -175,8 +209,8 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
                   >
                     <Icon className={`w-4 h-4 ${isSelected ? 'text-emerald-700' : 'text-slate-500'}`} />
                     <div>
-                      <div className="font-bold text-xs leading-tight">{v.label}</div>
-                      <div className="text-[10px] text-slate-500">Max: {v.limit} cm water</div>
+                      <div className="font-bold text-xs leading-tight">{vLabel}</div>
+                      <div className="text-[10px] text-slate-500">Max: {v.limit} {t('common.cm')}</div>
                     </div>
                   </button>
                 );
@@ -187,9 +221,9 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
           {/* Time Offset */}
           <div>
             <div className="flex justify-between text-slate-700 font-medium mb-1">
-              <span>Leaving Time:</span>
+              <span>{t('routes.departureTime')}:</span>
               <span className="font-bold text-blue-800">
-                {departureOffset === 0 ? 'Right Now' : `In ${departureOffset} minutes`}
+                {departureOffset === 0 ? t('routes.nowImmediate') : `+${departureOffset} ${t('common.mins')}`}
               </span>
             </div>
             <input
@@ -199,10 +233,10 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
               step="30"
               value={departureOffset}
               onChange={(e) => setDepartureOffset(Number(e.target.value))}
-              className="w-full accent-emerald-600"
+              className="w-full accent-emerald-600 cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-              <span>Now</span>
+              <span>{t('common.now')}</span>
               <span>+60m</span>
               <span>+120m</span>
               <span>+180m</span>
@@ -211,10 +245,10 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
 
           <button
             onClick={handleCalculateRoute}
-            className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 shadow-xs transition-colors"
+            className="w-full bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <Compass className="w-4 h-4" />
-            <span>Find Safest Path</span>
+            <span>{t('overview.findSafeRoute')}</span>
           </button>
         </div>
 
@@ -222,13 +256,13 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-slate-900 text-sm">
-              Available Routes ({routes.length} options)
+              {t('routes.title')} ({routes.length} options)
             </h3>
             <button
               onClick={onNavigateToMap}
-              className="text-xs text-blue-700 hover:underline font-bold flex items-center gap-1"
+              className="text-xs text-blue-700 hover:underline font-bold flex items-center gap-1 cursor-pointer"
             >
-              Show Selected Route on Map <ExternalLink className="w-3.5 h-3.5" />
+              {t('routes.viewRouteOnMap')} <ExternalLink className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -262,7 +296,7 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
                         isModerate ? 'bg-amber-100 text-amber-800 border border-amber-300' :
                         'bg-red-100 text-red-800 border border-red-300'
                       }`}>
-                        {isSafe ? 'RECOMMENDED SAFE ROUTE' : isModerate ? 'CAUTION ROUTE' : 'BLOCKED / IMPASSABLE'}
+                        {isSafe ? t('routes.recommendedRoute') : t('routes.alternativeRoute')}
                       </span>
                       <h4 className="font-bold text-slate-900 text-sm">{route.title}</h4>
                     </div>
@@ -271,55 +305,47 @@ export const RoutingPlanner: React.FC<RoutingPlannerProps> = ({
                       <span>{route.totalDistanceKm} km</span>
                       <span>·</span>
                       <span className="text-blue-800 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" /> ~{route.estimatedDurationMin} mins
+                        <Clock className="w-3.5 h-3.5" /> ~{route.estimatedDurationMin} {t('common.mins')}
                       </span>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-[11px]">
                     <div className="p-2 rounded bg-white border border-slate-200">
-                      <span className="text-slate-500 text-[10px] block font-medium">Deepest Water on Route</span>
+                      <span className="text-slate-500 text-[10px] block font-medium">{t('routes.maxDepth')}</span>
                       <span className={`font-bold font-mono ${isSafe ? 'text-emerald-700' : isModerate ? 'text-amber-700' : 'text-red-700'}`}>
-                        {route.maxWaterDepthCm} cm
+                        {route.maxWaterDepthCm} {t('common.cm')}
                       </span>
                     </div>
 
                     <div className="p-2 rounded bg-white border border-slate-200">
-                      <span className="text-slate-500 text-[10px] block font-medium">Flooded Stretches</span>
+                      <span className="text-slate-500 text-[10px] block font-medium">{t('routes.waterloggedSegments')}</span>
                       <span className="text-slate-800 font-bold">
-                        {route.floodedSegmentsCount} sections
+                        {route.floodedSegmentsCount} {t('common.water')}
                       </span>
                     </div>
 
                     <div className="p-2 rounded bg-white border border-slate-200">
-                      <span className="text-slate-500 text-[10px] block font-medium">Safety Confidence</span>
+                      <span className="text-slate-500 text-[10px] block font-medium">{t('routes.confidenceScore')}</span>
                       <span className="text-blue-800 font-bold font-mono">
                         {route.confidenceScore}%
                       </span>
                     </div>
 
                     <div className="p-2 rounded bg-white border border-slate-200">
-                      <span className="text-slate-500 text-[10px] block font-medium">Road Condition</span>
-                      <span className={`font-bold ${isSafe ? 'text-emerald-700' : 'text-red-700'}`}>
-                        {isSafe ? 'DRY / ELEVATED' : 'HAZARDOUS'}
+                      <span className="text-slate-500 text-[10px] block font-medium">{t('routes.clearance')}</span>
+                      <span className={`font-bold ${isSafe ? 'text-emerald-700' : 'text-amber-700'}`}>
+                        {isSafe ? t('routes.fullClearance') : t('routes.cautionRequired')}
                       </span>
                     </div>
                   </div>
 
-                  <p className="text-slate-700 text-xs mb-2.5 bg-white p-2.5 rounded-lg border border-slate-200 leading-relaxed">
-                    <strong>Route Advice:</strong> {route.safetyReason}
-                  </p>
-
-                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600">
-                    <span className="font-semibold text-slate-800">Key Waypoints:</span>
-                    {route.waypoints.map((wp, i) => (
-                      <React.Fragment key={i}>
-                        <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-800 font-medium">
-                          {wp}
-                        </span>
-                        {i < route.waypoints.length - 1 && <span className="text-slate-400">&rarr;</span>}
-                      </React.Fragment>
-                    ))}
+                  <div className="text-[11px] text-slate-600 flex items-start gap-1.5 bg-white/80 p-2 rounded border border-slate-200/80">
+                    <CheckCircle2 className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${isSafe ? 'text-emerald-600' : 'text-amber-600'}`} />
+                    <div>
+                      <strong className="text-slate-800">{t('routes.waypoints')}:</strong>{' '}
+                      {route.waypoints.join(' → ')}
+                    </div>
                   </div>
                 </div>
               );

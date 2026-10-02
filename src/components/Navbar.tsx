@@ -32,6 +32,7 @@ import {
 import { CityConfig, UserRole, AlertItem } from '../types';
 import { SUPPORTED_CITIES } from '../data/mockData';
 import { NavTabId } from './Sidebar';
+import { useTranslation } from '../i18n/LanguageContext';
 
 interface NavbarProps {
   currentCity: CityConfig;
@@ -85,9 +86,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   isSimulatedData
 }) => {
   const [showOfficerMenu, setShowOfficerMenu] = useState(false);
-  const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [language, setLanguage] = useState<'EN' | 'MR' | 'HI'>('EN');
+  const { language, setLanguage, t } = useTranslation();
 
   // Positioning & refs for Portal-based dropdowns (so they strictly render ABOVE the map canvas/controls)
   const bellButtonRef = useRef<HTMLButtonElement>(null);
@@ -219,36 +219,42 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="bg-[#128807] w-1/3 h-full"></span>
           </span>
           <span className="font-semibold text-slate-200">
-            Ministry of Earth Sciences &middot; Government of India
+            {t('common.ministryTitle')}
           </span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           {/* Prominent Emergency Helpline */}
-          <div className="flex items-center gap-1.5 text-amber-300 font-bold bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/40">
-            <PhoneCall className="w-3 h-3 text-amber-400" />
-            <span>24/7 Flood Helpline: 112 / 1070 / 1916</span>
+          <div className="hidden xs:flex items-center gap-1.5 text-amber-300 font-bold bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/40 text-[10px] sm:text-[11px]">
+            <PhoneCall className="w-3 h-3 text-amber-400 shrink-0" />
+            <span>{t('common.helpline')}</span>
           </div>
 
-          {/* Language Selector */}
-          <div className="hidden sm:flex items-center gap-1 text-slate-300">
+          {/* Language Selector (Always visible across all device sizes) */}
+          <div className="flex items-center gap-1 text-slate-300 text-[11px] sm:text-xs">
             <button
-              onClick={() => setLanguage('EN')}
-              className={`px-1.5 py-0.5 rounded ${language === 'EN' ? 'bg-blue-800 text-white font-bold' : 'hover:text-white'}`}
+              onClick={() => setLanguage('en')}
+              className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                language === 'en' ? 'bg-blue-800 text-white font-bold shadow-xs' : 'hover:text-white'
+              }`}
             >
               English
             </button>
             <span>|</span>
             <button
-              onClick={() => setLanguage('MR')}
-              className={`px-1.5 py-0.5 rounded ${language === 'MR' ? 'bg-blue-800 text-white font-bold' : 'hover:text-white'}`}
+              onClick={() => setLanguage('mr')}
+              className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                language === 'mr' ? 'bg-blue-800 text-white font-bold shadow-xs' : 'hover:text-white'
+              }`}
             >
               मराठी
             </button>
             <span>|</span>
             <button
-              onClick={() => setLanguage('HI')}
-              className={`px-1.5 py-0.5 rounded ${language === 'HI' ? 'bg-blue-800 text-white font-bold' : 'hover:text-white'}`}
+              onClick={() => setLanguage('hi')}
+              className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                language === 'hi' ? 'bg-blue-800 text-white font-bold shadow-xs' : 'hover:text-white'
+              }`}
             >
               हिन्दी
             </button>
@@ -261,14 +267,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="bg-red-700 text-white px-4 py-1.5 flex items-center justify-between text-xs font-semibold shadow-inner">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
-            <span className="uppercase tracking-wider font-bold">HIGH FLOOD ALERT IN EFFECT:</span>
-            <span>Heavy monsoon waterlogging across low-lying underpasses. Avoid flooded routes.</span>
+            <span className="uppercase tracking-wider font-bold">{t('common.highFloodAlert')}</span>
+            <span>{t('common.highFloodAlertDesc')}</span>
           </div>
           <button
             onClick={onToggleEmergencyMode}
-            className="text-[11px] underline hover:text-red-100 font-normal"
+            className="text-[11px] underline hover:text-red-100 font-normal cursor-pointer"
           >
-            Dismiss Alert Banner
+            {t('common.dismissAlert')}
           </button>
         </div>
       )}
@@ -282,11 +288,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={onBack}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-900/90 hover:bg-blue-800 text-white text-xs font-bold border border-blue-700/90 shadow-xs transition-all cursor-pointer focus:ring-2 focus:ring-amber-400 group"
-                title="Return to Previous Screen / Portal Gateway"
-                aria-label="Back"
+                title={t('common.back')}
+                aria-label={t('common.back')}
               >
                 <ArrowLeft className="w-3.5 h-3.5 text-blue-200 group-hover:-translate-x-0.5 transition-transform" />
-                <span>Back</span>
+                <span>{t('common.back')}</span>
               </button>
             )}
 
@@ -298,8 +304,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ? 'bg-amber-400 text-blue-950 border-amber-300 ring-2 ring-amber-300 shadow-md'
                   : 'bg-blue-950 hover:bg-blue-900 text-amber-300 hover:text-amber-200 border-blue-700/80 hover:border-amber-400/80'
               }`}
-              title={isSidebarOpen ? "Collapse Control Room Modules (Left Bar)" : "Open Control Room Modules (Left Bar)"}
-              aria-label="Toggle Control Room Modules Left Bar"
+              title={isSidebarOpen ? t('common.collapseMenu') : t('common.openMenu')}
+              aria-label={isSidebarOpen ? t('common.collapseMenu') : t('common.openMenu')}
               aria-expanded={isSidebarOpen}
             >
               <PanelLeft className="w-4 h-4 text-amber-300 group-hover:text-amber-200 group-hover:scale-110 transition-transform" />
@@ -312,25 +318,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base font-bold tracking-tight text-white leading-tight">
-                Urban Flood Nowcasting System
+                {t('common.appName')}
               </h1>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400 text-blue-950 uppercase">
-                Official Portal
+                {t('common.officialPortal')}
               </span>
             </div>
             <p className="text-xs text-blue-200">
-              Disaster Early Warning &middot; 0–3 Hour Rain &amp; Street Flood Forecast
+              {t('common.appTagline')}
             </p>
           </div>
         </div>
 
-        {/* Center: City & Ward Selector */}
+        {/* Center: City & Ward Selector (Desktop View) */}
         <div className="hidden lg:flex items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5 bg-blue-950/70 border border-blue-800/80 rounded-lg px-2.5 py-1.5">
-            <MapPin className="w-3.5 h-3.5 text-amber-300" />
-            <span className="text-blue-200 text-xs font-medium">City:</span>
+            <MapPin className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            <span className="text-blue-200 text-xs font-medium">{t('common.city')}:</span>
             <select
               value={currentCity.id}
               onChange={(e) => {
@@ -348,13 +354,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 bg-blue-950/70 border border-blue-800/80 rounded-lg px-2.5 py-1.5">
-            <span className="text-blue-200 text-xs font-medium">Area / Ward:</span>
+            <span className="text-blue-200 text-xs font-medium">{t('common.areaWard')}:</span>
             <select
               value={selectedWard}
               onChange={(e) => onWardChange(e.target.value)}
-              className="bg-transparent text-white font-bold focus:outline-none cursor-pointer text-xs max-w-[160px] truncate"
+              className="bg-transparent text-white font-bold focus:outline-none cursor-pointer text-xs max-w-[180px] truncate"
             >
-              <option value="ALL" className="bg-slate-900 text-white">Entire City</option>
+              <option value="ALL" className="bg-slate-900 text-white">{t('common.entireCity')}</option>
               {currentCity.wards.map(w => (
                 <option key={w} value={w} className="bg-slate-900 text-white">
                   {w}
@@ -366,7 +372,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-1.5 text-xs font-medium bg-blue-950/70 border border-blue-800/80 px-2.5 py-1.5 rounded-lg">
             <span className={`w-2 h-2 rounded-full ${isSimulatedData ? 'bg-sky-400' : 'bg-emerald-400 animate-pulse'}`}></span>
             <span className={isSimulatedData ? 'text-sky-300' : 'text-emerald-300'}>
-              {isSimulatedData ? 'MoES Model (Simulated)' : 'Live Radar Connected'}
+              {isSimulatedData ? t('common.simulatedModel') : t('common.liveRadarConnected')}
             </span>
             <span className="text-slate-400">&middot;</span>
             <span className="text-slate-300 font-mono text-[11px]">{lastUpdated}</span>
@@ -395,7 +401,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">{emergencyMode ? 'Emergency ON' : 'Emergency Mode'}</span>
+            <span className="hidden sm:inline">{emergencyMode ? t('common.emergencyOn') : t('common.emergencyMode')}</span>
           </button>
 
           {/* Notification Bell */}
@@ -691,6 +697,44 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Mobile & Tablet City / Ward Sub-bar (Guarantees Area/Ward selector is 100% accessible on smaller screens) */}
+      <div className="lg:hidden bg-[#0a1d38] px-3.5 py-1.5 flex items-center justify-between gap-2 text-xs border-t border-blue-900/60 overflow-x-auto">
+        <div className="flex items-center gap-1.5 bg-blue-950/80 border border-blue-800/80 rounded-lg px-2 py-1 shrink-0">
+          <MapPin className="w-3 h-3 text-amber-300 shrink-0" />
+          <span className="text-blue-200 text-[11px] font-medium">{t('common.city')}:</span>
+          <select
+            value={currentCity.id}
+            onChange={(e) => {
+              const found = SUPPORTED_CITIES.find(c => c.id === e.target.value);
+              if (found) onCityChange(found);
+            }}
+            className="bg-transparent text-white font-bold focus:outline-none cursor-pointer text-[11px]"
+          >
+            {SUPPORTED_CITIES.map(c => (
+              <option key={c.id} value={c.id} className="bg-slate-900 text-white">
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-1.5 bg-blue-950/80 border border-blue-800/80 rounded-lg px-2 py-1 shrink-0">
+          <span className="text-blue-200 text-[11px] font-medium">{t('common.areaWard')}:</span>
+          <select
+            value={selectedWard}
+            onChange={(e) => onWardChange(e.target.value)}
+            className="bg-transparent text-white font-bold focus:outline-none cursor-pointer text-[11px] max-w-[150px] truncate"
+          >
+            <option value="ALL" className="bg-slate-900 text-white">{t('common.entireCity')}</option>
+            {currentCity.wards.map(w => (
+              <option key={w} value={w} className="bg-slate-900 text-white">
+                {w}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
     </header>

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { CityConfig, NationalFloodHotspot } from '../../types';
 import { NATIONAL_FLOOD_HOTSPOTS } from '../../data/mockData';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 interface LandingPageProps {
   onEnterPublic: (cityId?: string) => void;
@@ -28,6 +29,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onEnterPublic,
   onEnterControlRoom
 }) => {
+  const { t, language, setLanguage } = useTranslation();
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       {/* Top National Strip */}
@@ -41,18 +44,48 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span className="bg-[#128807] w-1/3 h-full" />
             </span>
             <span className="font-semibold text-slate-200 tracking-wide uppercase text-[11px]">
-              Ministry of Earth Sciences &middot; Government of India
+              {t('common.ministryTitle')}
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px]">
+            {/* Language Switcher */}
+            <div className="flex items-center gap-1 text-slate-300 text-[11px] sm:text-xs">
+              <button
+                onClick={() => setLanguage('en')}
+                className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                  language === 'en' ? 'bg-blue-800 text-white font-bold shadow-xs' : 'hover:text-white'
+                }`}
+              >
+                English
+              </button>
+              <span>|</span>
+              <button
+                onClick={() => setLanguage('mr')}
+                className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                  language === 'mr' ? 'bg-blue-800 text-white font-bold shadow-xs' : 'hover:text-white'
+                }`}
+              >
+                मराठी
+              </button>
+              <span>|</span>
+              <button
+                onClick={() => setLanguage('hi')}
+                className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                  language === 'hi' ? 'bg-blue-800 text-white font-bold shadow-xs' : 'hover:text-white'
+                }`}
+              >
+                हिन्दी
+              </button>
+            </div>
+
             <div className="flex items-center gap-1.5 text-amber-300 font-bold bg-amber-950/80 px-2.5 py-1 rounded-md border border-amber-500/50">
               <PhoneCall className="w-3.5 h-3.5 text-amber-400" />
-              <span>National Disaster Helpline: 112 / 1070 / 1916</span>
+              <span>{t('common.helpline')}</span>
             </div>
             <div className="hidden md:flex items-center gap-1.5 text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-600/40">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Doppler Radar Network Active</span>
+              <span>{t('common.liveRadarConnected')}</span>
             </div>
           </div>
         </div>

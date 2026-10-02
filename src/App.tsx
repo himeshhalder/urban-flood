@@ -40,6 +40,8 @@ import {
   getCityData
 } from './data/mockData';
 
+import { getWardFilteredData } from './services/wardService';
+
 export default function App() {
   // Navigation & Spatial Domain - Default to All India so India map fits on one screen on initial load
   const [currentCity, setCurrentCity] = useState<CityConfig>(SUPPORTED_CITIES[0]);
@@ -101,10 +103,18 @@ export default function App() {
     setActiveRoute(null);
   }, []);
 
-  // Filter roads by ward if selected
-  const visibleRoads = selectedWard === 'ALL'
-    ? roads
-    : roads.filter(r => r.ward.toLowerCase().includes(selectedWard.toLowerCase()));
+  // Synchronized Multi-Component Ward Filtering & Microclimate Analytics
+  const wardData = React.useMemo(() => {
+    return getWardFilteredData({
+      roads,
+      drainageNodes,
+      rainfallData,
+      alerts,
+      selectedWard
+    });
+  }, [roads, drainageNodes, rainfallData, alerts, selectedWard]);
+
+  const visibleRoads = wardData.effectiveRoads;
 
   // Trigger Telemetry Refresh (Simulates Live Doppler Radar & Sensor Ingestion)
   const handleRefreshData = useCallback(() => {
@@ -220,7 +230,7 @@ export default function App() {
           onToggleEmergencyMode={() => setEmergencyMode(!emergencyMode)}
           userRole={userRole}
           onRoleChange={setUserRole}
-          alerts={alerts}
+          alerts={wardData.relevantAlerts}
           onOpenAlerts={() => setActiveTab('alerts')}
           lastUpdated={lastUpdated}
           onRefreshData={handleRefreshData}
@@ -283,7 +293,7 @@ export default function App() {
           <Sidebar
             activeTab={activeTab}
             onSelectTab={setActiveTab}
-            alertCount={alerts.filter(a => a.status === 'new').length}
+            alertCount={wardData.relevantAlerts.filter(a => a.status === 'new').length}
             reportCount={citizenReports.length}
             isOpen={!isSidebarCollapsed || mobileSidebarOpen}
             onClose={() => {
@@ -298,14 +308,21 @@ export default function App() {
           {/* Overview Tab: Displays Summary Cards + Interactive Map Preview */}
           {activeTab === 'overview' && (
             <div className="flex-1 w-full h-full min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6">
-              {/* Summary Cards */}
+              {/* Summary Cards & Situation Report */}
               <OverviewDashboard
-                roads={visibleRoads}
-                drainageNodes={drainageNodes}
-                rainfallData={rainfallData}
-                alerts={alerts}
+                roads={wardData.effectiveRoads}
+                drainageNodes={wardData.effectiveNodes}
+                rainfallData={wardData.effectiveRainfall}
+                alerts={wardData.relevantAlerts}
                 onSelectRoad={handleSelectRoadAndShowMap}
                 onNavigateToTab={setActiveTab}
+                currentCity={currentCity}
+                lastUpdated={lastUpdated}
+                facilities={facilities}
+                officerName={officerSession?.name}
+                department={officerSession?.department}
+                selectedWard={selectedWard}
+                warningLevel={wardData.officialWarningLevel}
               />
 
               {/* Integrated Live Map Preview in Overview */}
@@ -346,6 +363,7 @@ export default function App() {
                       setActiveTab('map');
                       setIsMapFullscreen(true);
                     }}
+                    selectedWard={selectedWard}
                   />
                 </div>
               </div>
@@ -428,6 +446,7 @@ export default function App() {
                   }}
                   isFullscreen={isMapFullscreen}
                   onToggleFullscreen={() => setIsMapFullscreen(prev => !prev)}
+                  selectedWard={selectedWard}
                 />
               </div>
             </div>
@@ -437,8 +456,10 @@ export default function App() {
           {activeTab === 'rainfall' && (
             <div className="flex-1 w-full h-full min-h-0 overflow-y-auto p-4 sm:p-6 bg-slate-100">
               <RainfallModule
-                rainfallSeries={rainfallData}
+                rainfallSeries={wardData.effectiveRainfall}
                 onTriggerRainUpdate={handleRefreshData}
+                currentCity={currentCity}
+                selectedWard={selectedWard}
               />
             </div>
           )}
@@ -447,13 +468,15 @@ export default function App() {
           {activeTab === 'drainage' && (
             <div className="flex-1 w-full h-full min-h-0 overflow-y-auto p-4 sm:p-6 bg-slate-100">
               <DrainageModule
-                nodes={drainageNodes}
+                nodes={wardData.effectiveNodes}
                 edges={drainageEdges}
-                roads={visibleRoads}
+                roads={wardData.effectiveRoads}
                 onApplySimulatedNode={handleApplySimulatedNode}
                 onFocusOnMap={() => {
                   setActiveTab('map');
                 }}
+                currentCity={currentCity}
+                selectedWard={selectedWard}
               />
             </div>
           )}
@@ -462,11 +485,12 @@ export default function App() {
           {activeTab === 'routes' && (
             <div className="flex-1 w-full h-full min-h-0 overflow-y-auto p-4 sm:p-6 bg-slate-100">
               <RoutingPlanner
-                roads={visibleRoads}
+                roads={wardData.effectiveRoads}
                 onSelectRoute={setActiveRoute}
                 onNavigateToMap={() => setActiveTab('map')}
                 currentCity={currentCity}
                 facilities={facilities}
+                selectedWard={selectedWard}
               />
             </div>
           )}
@@ -475,9 +499,11 @@ export default function App() {
           {activeTab === 'alerts' && (
             <div className="flex-1 w-full h-full min-h-0 overflow-y-auto p-4 sm:p-6 bg-slate-100">
               <AlertsModule
-                alerts={alerts}
+                alerts={wardData.relevantAlerts}
                 onUpdateAlertStatus={handleUpdateAlertStatus}
                 onBroadcastAlert={handleBroadcastAlert}
+                selectedWard={selectedWard}
+                currentCity={currentCity}
               />
             </div>
           )}
